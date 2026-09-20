@@ -14,3 +14,7 @@ web/.angular/
 # local
 config.local.yml
 .DS_Store
+
+#IDE
+.idea
+
