@@ -1,0 +1,112 @@
+:host { display: block; }
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--ink-secondary);
+  font-size: 1rem;
+}
+
+.now {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.filters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--gap);
+
+  button {
+    min-height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--surface);
+    color: var(--ink-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+
+    &.on {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--surface);
+    }
+  }
+
+  .table-toggle { margin-left: auto; }
+}
+
+.charts {
+  display: grid;
+  gap: var(--gap);
+}
+
+@media (min-width: 720px) {
+  .charts { grid-template-columns: 1fr 1fr; }
+}
+
+.notice {
+  margin: 0 0 var(--gap);
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  color: var(--ink-secondary);
+}
+
+table {
+  width: 100%;
+  margin-top: var(--gap);
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+
+  caption {
+    padding: 12px 14px 8px;
+    text-align: left;
+    font-size: 0.75rem;
+    color: var(--ink-muted);
+  }
+
+  th, td {
+    padding: 8px 14px;
+    text-align: left;
+    border-top: 1px solid var(--hairline);
+  }
+
+  th {
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+
+  td { color: var(--ink-secondary); }
+}

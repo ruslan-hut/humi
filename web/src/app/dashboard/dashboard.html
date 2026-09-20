@@ -1,0 +1,21 @@
+<section>
+  <h1>Rooms</h1>
+
+  @if (error(); as message) {
+    <p class="notice" role="alert">{{ message }}</p>
+  }
+
+  @if (loading()) {
+    <p class="notice">Loading…</p>
+  } @else if (nodes().length === 0) {
+    <p class="notice">
+      No nodes yet. Register one with <code>nodectl -slug bedroom -name Bedroom</code>.
+    </p>
+  } @else {
+    <div class="grid">
+      @for (node of nodes(); track node.slug) {
+        <app-node-card [node]="node" />
+      }
+    </div>
+  }
+</section>

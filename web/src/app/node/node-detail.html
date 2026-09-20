@@ -1,0 +1,74 @@
+<section>
+  <header class="head">
+    <a class="back" routerLink="/" aria-label="Back to rooms">&larr;</a>
+    <h1>{{ node()?.name ?? slug() }}</h1>
+    @if (node(); as n) {
+      <span class="now">
+        @if (n.last; as last) {
+          {{ last.rh | number: '1.0-0' }}% · {{ band() }}
+        } @else {
+          no readings
+        }
+      </span>
+    }
+  </header>
+
+  <div class="filters" role="group" aria-label="Time range">
+    @for (r of ranges; track r.key) {
+      <button
+        type="button"
+        [class.on]="r.key === range().key"
+        [attr.aria-pressed]="r.key === range().key"
+        (click)="select(r)"
+      >{{ r.label }}</button>
+    }
+    <button type="button" class="table-toggle" [attr.aria-pressed]="showTable()" (click)="toggleTable()">
+      Table
+    </button>
+  </div>
+
+  @if (error(); as message) {
+    <p class="notice" role="alert">{{ message }}</p>
+  }
+
+  <div class="charts">
+    <app-series-chart
+      [points]="humidity()"
+      label="Relative humidity"
+      color="var(--rh)"
+      unit="%"
+      [decimals]="0"
+    />
+    <app-series-chart
+      [points]="temperature()"
+      label="Temperature"
+      color="var(--temp)"
+      unit="°C"
+      [decimals]="1"
+    />
+  </div>
+
+  @if (showTable()) {
+    <table>
+      <caption>Bucketed readings, newest first</caption>
+      <thead>
+        <tr>
+          <th scope="col">Time</th>
+          <th scope="col">RH avg</th>
+          <th scope="col">RH min–max</th>
+          <th scope="col">T avg</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.t) {
+          <tr>
+            <td>{{ stamp(row.t) }}</td>
+            <td>{{ row.rh_avg | number: '1.1-1' }}%</td>
+            <td>{{ row.rh_min | number: '1.0-0' }}–{{ row.rh_max | number: '1.0-0' }}%</td>
+            <td>{{ row.t_avg !== undefined ? (row.t_avg | number: '1.1-1') : '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

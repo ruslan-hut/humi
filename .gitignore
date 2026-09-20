@@ -1,0 +1,16 @@
+# Go
+/humi
+/nodectl
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Angular
+web/node_modules/
+web/dist/
+web/.angular/
+
+# local
+config.local.yml
+.DS_Store

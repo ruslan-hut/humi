@@ -1,0 +1,27 @@
+server {
+    listen 443 ssl http2;
+    server_name humi.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/humi.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/humi.example.com/privkey.pem;
+
+    # The only path the nodes need from outside. Everything else should stay
+    # on the LAN or behind a VPN until phase 5 (user auth) is in.
+    location = /api/v1/readings {
+        limit_req zone=ingest burst=5 nodelay;
+        proxy_pass http://127.0.0.1:9820;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location / {
+        allow 192.168.0.0/16;
+        allow 100.64.0.0/10;   # tailscale
+        deny all;
+
+        proxy_pass http://127.0.0.1:9820;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# in http{}:
+# limit_req_zone $binary_remote_addr zone=ingest:1m rate=30r/m;

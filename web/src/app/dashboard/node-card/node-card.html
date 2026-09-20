@@ -1,0 +1,30 @@
+<a class="card" [routerLink]="['/n', node().slug]">
+  <header>
+    <span class="name">{{ node().name }}</span>
+    <span class="state" [attr.data-state]="state().key">
+      <span class="glyph" aria-hidden="true">{{ state().glyph }}</span>
+      {{ state().label }}
+    </span>
+  </header>
+
+  @if (node().last; as last) {
+    <div class="values">
+      <span class="rh">{{ last.rh | number: '1.0-0' }}<span class="unit">%</span></span>
+      @if (last.temp !== undefined) {
+        <span class="temp">{{ last.temp | number: '1.1-1' }}<span class="unit">°C</span></span>
+      }
+    </div>
+  } @else {
+    <p class="values empty">No readings yet</p>
+  }
+
+  <footer>
+    <span>{{ seen() }}</span>
+    @if (node().last?.vbat; as vbat) {
+      <span [class.low]="lowBattery()">{{ vbat | number: '1.2-2' }} V</span>
+    }
+    @if (node().last?.rssi; as rssi) {
+      <span>{{ rssi }} dBm</span>
+    }
+  </footer>
+</a>

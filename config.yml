@@ -1,0 +1,22 @@
+env: local
+
+listen:
+  bind_ip: 127.0.0.1
+  port: "9820"
+
+database:
+  path: humi.db
+
+ingest:
+  max_batch: 32
+  max_age_s: 86400
+  rate_per_min: 30
+  offline_ratio: 3
+
+telegram:
+  enabled: false
+  api_key: ""
+  chat_id: ""
+
+web:
+  dir: "web/dist/web/browser"

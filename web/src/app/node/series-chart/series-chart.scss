@@ -1,0 +1,119 @@
+:host {
+  display: block;
+}
+
+.chart {
+  margin: 0;
+  padding: 14px 14px 6px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.key {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--series);
+  transform: translateY(-3px);
+}
+
+.title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-secondary);
+}
+
+.now {
+  margin-left: auto;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.empty {
+  margin: 28px 0 34px;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.plot {
+  position: relative;
+  touch-action: pan-y;
+}
+
+svg {
+  display: block;
+  width: 100%;
+}
+
+.grid { stroke: var(--grid); stroke-width: 1; }
+.axis { stroke: var(--axis); stroke-width: 1; }
+
+.tick {
+  fill: var(--ink-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.band { fill: var(--series); opacity: 0.12; }
+
+.line {
+  fill: none;
+  stroke: var(--series);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.end, .cursor { fill: var(--series); }
+.end-ring, .cursor-ring { fill: var(--surface); }
+
+.crosshair {
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+
+.tooltip {
+  position: absolute;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 9px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+  pointer-events: none;
+  white-space: nowrap;
+
+  &.flip { transform: translate(-100%, -50%); }
+}
+
+.stamp {
+  font-size: 0.6875rem;
+  color: var(--ink-muted);
+}
+
+.value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.range {
+  font-size: 0.6875rem;
+  color: var(--ink-secondary);
+  font-variant-numeric: tabular-nums;
+}

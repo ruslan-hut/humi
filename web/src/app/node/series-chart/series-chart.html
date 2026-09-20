@@ -1,0 +1,58 @@
+<figure class="chart">
+  <figcaption>
+    <span class="key" aria-hidden="true"></span>
+    <span class="title">{{ label() }}</span>
+    @if (points().length > 0) {
+      <span class="now">{{ format(points()[points().length - 1].avg) }}{{ unit() }}</span>
+    }
+  </figcaption>
+
+  @if (points().length === 0) {
+    <p class="empty">No readings in this range.</p>
+  } @else {
+    <div class="plot">
+      <svg
+        [attr.width]="view().w"
+        [attr.height]="view().h"
+        [attr.viewBox]="'0 0 ' + view().w + ' ' + view().h"
+        role="img"
+        [attr.aria-label]="label() + ', ' + points().length + ' points'"
+        (pointermove)="onMove($event)"
+        (pointerleave)="onLeave()"
+      >
+        @for (t of view().yTicks; track t.v) {
+          <line class="grid" [attr.x1]="view().x0" [attr.x2]="view().x1" [attr.y1]="t.pos" [attr.y2]="t.pos" />
+          <text class="tick" [attr.x]="view().x0 - 8" [attr.y]="t.pos + 4" [attr.text-anchor]="t.anchor">{{ t.label }}</text>
+        }
+
+        <path class="band" [attr.d]="view().band" />
+        <path class="line" [attr.d]="view().line" />
+
+        @if (view().end; as end) {
+          <circle class="end-ring" [attr.cx]="end.x" [attr.cy]="end.y" r="6" />
+          <circle class="end" [attr.cx]="end.x" [attr.cy]="end.y" r="4" />
+        }
+
+        @if (hover(); as h) {
+          <line class="crosshair" [attr.x1]="h.x" [attr.x2]="h.x" [attr.y1]="view().y1" [attr.y2]="view().y0" />
+          <circle class="cursor-ring" [attr.cx]="h.x" [attr.cy]="h.y" r="6" />
+          <circle class="cursor" [attr.cx]="h.x" [attr.cy]="h.y" r="4" />
+        }
+
+        <line class="axis" [attr.x1]="view().x0" [attr.x2]="view().x1" [attr.y1]="view().y0" [attr.y2]="view().y0" />
+
+        @for (t of view().xTicks; track t.v) {
+          <text class="tick" [attr.x]="t.pos" [attr.y]="view().h - 6" [attr.text-anchor]="t.anchor">{{ t.label }}</text>
+        }
+      </svg>
+
+      @if (hover(); as h) {
+        <div class="tooltip" [class.flip]="h.flip" [style.left.px]="h.left" [style.top.px]="h.y">
+          <span class="stamp">{{ stamp(h.point.t) }}</span>
+          <span class="value">{{ format(h.point.avg) }}{{ unit() }}</span>
+          <span class="range">{{ format(h.point.min) }} – {{ format(h.point.max) }}{{ unit() }}</span>
+        </div>
+      }
+    </div>
+  }
+</figure>

@@ -1,0 +1,22 @@
+[Unit]
+Description=humi humidity monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=humi
+Group=humi
+WorkingDirectory=/opt/humi
+ExecStart=/opt/humi/bin/humi -conf /opt/humi/config.yml -log /var/log/humi
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/humi /var/log/humi
+
+[Install]
+WantedBy=multi-user.target
