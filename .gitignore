@@ -1,6 +1,7 @@
 # Go
 /humi
 /nodectl
+bin/
 *.db
 *.db-wal
 *.db-shm
@@ -18,3 +19,5 @@ config.local.yml
 #IDE
 .idea
 
+# firmware credentials
+firmware/**/secrets.h

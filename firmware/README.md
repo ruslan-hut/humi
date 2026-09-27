@@ -1,7 +1,32 @@
 # Firmware
 
-ESP32-C3, Arduino framework. Not written yet — see section 6 of
-`../IMPLEMENTATION.md` for the wake cycle and the RTC-memory buffer.
+ESP32-C3, Arduino framework, built and flashed with `arduino-cli`.
+
+- `selftest/` — chip info, WiFi scan, I²C scan and a live SHT4x reading.
+  Flash it onto every board and sensor before assembly.
+- `node/` — the node. Currently the **bench build** (phase 2): USB power, no
+  deep sleep, POST every `interval_s`. The wake cycle and RTC-memory buffer of
+  section 6 of `../IMPLEMENTATION.md` come next.
+
+## Build and flash
+
+```sh
+brew install arduino-cli
+arduino-cli config add board_manager.additional_urls \
+  https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+arduino-cli core update-index && arduino-cli core install esp32:esp32
+
+cp node/secrets.example.h node/secrets.h     # WiFi, server URL, node token
+arduino-cli compile -b esp32:esp32:XIAO_ESP32C3 node
+arduino-cli upload  -b esp32:esp32:XIAO_ESP32C3 -p /dev/cu.usbmodem1101 node
+```
+
+Serial output is 115200 baud on the same USB port. If the board does not show
+up (deep sleep, or a crashed sketch), hold **B**, plug USB in, release: the
+ROM bootloader always enumerates.
+
+For the bench, point `HUMI_URL` at the machine running the server and bind the
+server to its LAN address in a gitignored `config.local.yml`.
 
 ---
 
@@ -54,6 +79,16 @@ cell hangs off the charger that is already on the board.
 Four wires to the sensor, two to the battery, two resistors and a capacitor.
 That is the whole node.
 
+## Headers
+
+The XIAO ships with loose header strips. **Do not solder `5V`, `D0` or `D1`** —
+they sit against the USB-C connector, and heat there cracked the connector's
+own joints on the first board: USB went intermittent, then dead. The node uses
+none of them. Solder `GND` last, one quick touch from the board edge.
+
+Solder the far pins too (`D6`, `D7`–`D10`) even though they are unused: they
+hold the strips when Dupont leads are pulled off.
+
 ## Battery
 
 The XIAO charges the cell itself over USB-C — 380 mA fast, 40 mA trickle. No
@@ -101,8 +136,8 @@ times the node's entire sleep budget. Check the board under a light with USB
 attached. If there is one:
 
 - cut its jumper or lift the resistor, which is the better fix, or
-- move SHT41 `VIN` from `3V3` to **`D1` / GPIO3**, drive it HIGH on wake, LOW
-  before sleep. GPIO3 is RTC-capable so `gpio_hold_en()` keeps it low through
+- move SHT41 `VIN` from `3V3` to **`D3` / GPIO5**, drive it HIGH on wake, LOW
+  before sleep. GPIO5 is RTC-capable so `gpio_hold_en()` keeps it low through
   deep sleep, and it is not a strapping pin.
 
 If you gate it, also `Wire.end()` and set `D4`/`D5` to `INPUT` before sleeping,
@@ -117,7 +152,7 @@ LED-less board can stay on `3V3` permanently.
 |-----|-------|
 | `D4`, `D5` | `INPUT` after `Wire.end()` |
 | `D2` | `INPUT` — the divider is passive, nothing to switch |
-| `D1` | `LOW` + `gpio_hold_en()`, only if the gate is fitted |
+| `D3` | `LOW` + `gpio_hold_en()`, only if the gate is fitted |
 
 ## Node credentials
 

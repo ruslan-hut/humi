@@ -38,9 +38,10 @@ curl -X POST localhost:9820/api/v1/readings \
 Phases 1 and 3 are done: ingest, storage, node state, bucketed series, dashboard
 and charts. Alerts (phase 4) and UI auth (phase 5) are specified, not built.
 
-Hardware for three nodes ordered 20 Sep 2026, due 24 Sep (cells 22–25 Sep).
-Next up is **phase 2** — one node on a breadboard over USB, no deep sleep, to
-prove SHT41 → WiFi → POST before touching power optimisation.
+Hardware received 27 Sep 2026. **Phase 2 is proven on the bench**: one XIAO +
+SHT41 on USB posts every 30 s to a server on the LAN and shows up on the
+dashboard. Next: deep sleep, battery sense and a µA measurement before
+building the rest. Firmware and flashing: `firmware/README.md`.
 
 **The read API is unauthenticated.** The service binds to `127.0.0.1`; keep it
 there until phase 5 lands, or reach it over a VPN.
