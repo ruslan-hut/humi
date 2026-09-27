@@ -234,21 +234,29 @@ before closing the boxes.
 
 ```
 wake (timer)
-  ├─ restore BSSID + channel from RTC memory
+  ├─ restore BSSID, channel and the DHCP lease from RTC memory
   ├─ power the sensor module GPIO high, wait 10 ms
   ├─ SHT41 high-precision measurement (~9 ms)
   ├─ read VBAT from the divider
-  ├─ WiFi.begin(ssid, pass, channel, bssid)   ← the reconnect shortcut
+  ├─ WiFi.config(lease) + WiFi.begin(ssid, pass, channel, bssid)   ← the reconnect shortcut
   ├─ POST, with the buffered readings appended
   │     ok    → clear the buffer, store interval_s from the reply
   │     fail  → retry once, then push into the RTC buffer and give up
-  ├─ save BSSID + channel
+  ├─ save BSSID, channel, and the lease if DHCP ran
   └─ esp_deep_sleep(interval_s)
 ```
 
-RTC memory survives deep sleep and holds: BSSID, channel, the ring buffer of
-unsent readings (8 entries is plenty), and a failure counter. After 5 consecutive
-failures, drop back to a full scan on the next wake — the AP may have moved.
+RTC memory survives deep sleep and holds: BSSID, channel, the last DHCP lease,
+the ring buffer of unsent readings (8 entries is plenty), and a failure counter.
+After 5 consecutive failures, drop back to a full scan on the next wake — the AP
+may have moved.
+
+**The lease matters more than the BSSID.** Measured on the bench (XIAO ESP32C3,
+~85 mA awake): association with a known BSSID takes 0,1–0,2 s, DHCP ~3,3 s.
+Reusing the lease brings a wake from ~3,7 s to 0,23–0,47 s typical, with a rare
+~5 s outlier when the AP is slow to associate. DHCP runs again every 6 h, and
+after any failed connect, so the router keeps seeing the lease renewed. A DHCP
+reservation for the node's MAC on the router removes the last conflict risk.
 
 Open questions from the original plan, answered:
 

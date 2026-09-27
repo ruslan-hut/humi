@@ -21,9 +21,18 @@ arduino-cli compile -b esp32:esp32:XIAO_ESP32C3 node
 arduino-cli upload  -b esp32:esp32:XIAO_ESP32C3 -p /dev/cu.usbmodem1101 node
 ```
 
-Serial output is 115200 baud on the same USB port. If the board does not show
-up (deep sleep, or a crashed sketch), hold **B**, plug USB in, release: the
-ROM bootloader always enumerates.
+Serial output is 115200 baud on the same USB port. The node collects its log
+and prints it just before sleeping, and only waits for a host when USB is
+plugged in, so the wake log survives the port re-enumerating.
+
+**Flashing a sleeping node.** It is awake for well under a second, too short
+for `upload` to catch. Hold **B**, tap **R**, release **B**: the ROM bootloader
+enumerates and waits. After flashing, the RTS reset leaves it in the
+bootloader; tap **R** again, or reset it from the Mac:
+
+```sh
+esptool --chip esp32c3 -p /dev/cu.usbmodem1101 --before no-reset --after watchdog-reset chip-id
+```
 
 For the bench, point `HUMI_URL` at the machine running the server and bind the
 server to its LAN address in a gitignored `config.local.yml`.
