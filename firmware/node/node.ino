@@ -13,7 +13,7 @@
 #include "secrets.h"
 #include "sht4x.h"
 
-const char* FW_VERSION = "0.2.2";
+const char* FW_VERSION = "0.3.1";
 
 // The sensor module is powered from a GPIO, so its LED, LDO and pull-ups are
 // off while the node sleeps. -1 when its VIN is wired to 3V3 instead.
@@ -21,8 +21,15 @@ const int SENSOR_POWER_PIN = D3;  // GPIO5: RTC-capable, not a strapping pin
 
 // 1M/1M divider from BAT+ to D2. Leave false until it is fitted: a floating
 // ADC pin reads noise, and the server would store it as battery voltage.
-const bool HAS_VBAT_DIVIDER = false;
+const bool HAS_VBAT_DIVIDER = true;
 const int VBAT_PIN = A2;
+
+// Per-node correction for resistor tolerance and ADC gain: meter reading
+// divided by what the node reports, taken on battery, not while charging.
+// Set it in secrets.h, which is per node anyway.
+#ifndef VBAT_SCALE
+#define VBAT_SCALE 1.0f
+#endif
 
 const unsigned long WIFI_TIMEOUT_MS = 10000;
 const int DEFAULT_INTERVAL_S = 900;
@@ -101,7 +108,7 @@ bool measure(Sample& s) {
   s.vbat = 0;
   if (HAS_VBAT_DIVIDER) {
     analogReadMilliVolts(VBAT_PIN);  // first sample after wake is unreliable
-    s.vbat = analogReadMilliVolts(VBAT_PIN) * 2 / 1000.0f;
+    s.vbat = analogReadMilliVolts(VBAT_PIN) * 2 / 1000.0f * VBAT_SCALE;
   }
   s.takenAt = nowS();
   return ok;
@@ -120,8 +127,13 @@ bool connectWifi() {
   WiFi.mode(WIFI_STA);
 
   static unsigned long associatedAt = 0;
-  WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t) { associatedAt = millis(); },
-               ARDUINO_EVENT_WIFI_STA_CONNECTED);
+  static bool hooked = false;
+  if (!hooked) {
+    WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t) { associatedAt = millis(); },
+                 ARDUINO_EVENT_WIFI_STA_CONNECTED);
+    hooked = true;
+  }
+  associatedAt = 0;
 
   bool targeted = apChannel > 0 && failures < FULL_SCAN_AFTER_FAILURES;
   bool reuseLease = targeted && leaseIp != 0 && nowS() - leaseAt < LEASE_REUSE_S;
@@ -155,7 +167,7 @@ bool connectWifi() {
     leaseAt = nowS();
   }
   logf("wifi: %s connect in %lu ms (associated at %lu ms), ip %s, rssi %d dBm\n",
-                mode, millis() - start, associatedAt ? associatedAt - start : 0,
+                mode, millis() - start, associatedAt ? associatedAt - start : 0UL,
                 WiFi.localIP().toString().c_str(), WiFi.RSSI());
   return true;
 }
@@ -204,35 +216,41 @@ bool post(const Sample* current) {
   return true;
 }
 
-void sleepUntilNextReading() {
+unsigned long cycleStart = 0;  // millis() when this reading began
+
+// Ends a cycle. On battery it deep-sleeps and never returns. With a USB host
+// attached it waits awake instead, so the port stays up for flashing and logs.
+void finishCycle() {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
+
+  // Keep a fixed cadence: subtract the time already spent awake.
+  uint64_t intervalUs = (uint64_t)intervalS * 1000000ULL;
+  uint64_t awakeUs = (uint64_t)(millis() - cycleStart) * 1000ULL;
+  uint64_t sleepUs = awakeUs < intervalUs ? intervalUs - awakeUs : 1000000ULL;
+  bool usbHost = HWCDC::isPlugged();
+
+  logf("%s: %llu s, awake %lu ms, buffered %d, failures %d\n\n",
+       usbHost ? "wait (usb)" : "sleep", sleepUs / 1000000ULL,
+       (unsigned long)(awakeUs / 1000), buffered, failures);
+  flushLog();
+  logBuf = "";
+
+  if (usbHost) {
+    delay(sleepUs / 1000);
+    return;
+  }
 
   if (SENSOR_POWER_PIN >= 0) {
     digitalWrite(SENSOR_POWER_PIN, LOW);
     gpio_hold_en((gpio_num_t)SENSOR_POWER_PIN);  // stay low through deep sleep
     gpio_deep_sleep_hold_en();
   }
-
-  // Wake on a fixed cadence: subtract the time already spent awake.
-  uint64_t intervalUs = (uint64_t)intervalS * 1000000ULL;
-  uint64_t awakeUs = micros();
-  uint64_t sleepUs = awakeUs < intervalUs ? intervalUs - awakeUs : 1000000ULL;
-
-  logf("sleep: %llu s, awake %lu ms, buffered %d, failures %d\n\n",
-       sleepUs / 1000000ULL, (unsigned long)(awakeUs / 1000), buffered, failures);
-  flushLog();
-
   esp_sleep_enable_timer_wakeup(sleepUs);
   esp_deep_sleep_start();
 }
 
-void setup() {
-  Serial.begin(115200);
-  Serial.setTxTimeoutMs(0);  // on battery there is no USB host; never block on it
-  logf("humi node %s, wake %s\n", FW_VERSION,
-                esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER ? "timer" : "power-on");
-
+void readAndSend() {
   Sample s;
   bool measured = measure(s);
   if (measured) {
@@ -240,10 +258,9 @@ void setup() {
   } else {
     logf("sht4x: read failed\n");
   }
+  if (HAS_VBAT_DIVIDER) logf("vbat: %.3f V\n", s.vbat);
 
-  if (!measured && buffered == 0) {
-    sleepUntilNextReading();  // nothing to send
-  }
+  if (!measured && buffered == 0) return;  // nothing to send
 
   bool sent = false;
   if (connectWifi()) {
@@ -259,7 +276,24 @@ void setup() {
     failures++;
     if (measured) remember(s);
   }
-  sleepUntilNextReading();
 }
 
-void loop() {}  // never reached: every wake ends in deep sleep
+void setup() {
+  Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);  // on battery there is no USB host; never block on it
+}
+
+// On battery every wake is a fresh boot that runs loop() once and sleeps.
+// Only on USB does loop() actually repeat.
+void loop() {
+  static bool firstCycle = true;
+  const char* cause = !firstCycle ? "usb"
+                      : esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER ? "timer"
+                      : "power-on";
+  cycleStart = firstCycle ? 0 : millis();  // the first cycle counts from boot
+  firstCycle = false;
+
+  logf("humi node %s, wake %s\n", FW_VERSION, cause);
+  readAndSend();
+  finishCycle();
+}

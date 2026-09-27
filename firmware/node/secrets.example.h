@@ -11,3 +11,6 @@
 
 // From: nodectl -slug <slug> -name <Name>
 #define HUMI_TOKEN "paste-the-token-here"
+
+// Battery calibration: multimeter volts / reported vbat, measured on battery.
+#define VBAT_SCALE 1.0f

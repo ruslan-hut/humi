@@ -25,8 +25,11 @@ Serial output is 115200 baud on the same USB port. The node collects its log
 and prints it just before sleeping, and only waits for a host when USB is
 plugged in, so the wake log survives the port re-enumerating.
 
-**Flashing a sleeping node.** It is awake for well under a second, too short
-for `upload` to catch. Hold **B**, tap **R**, release **B**: the ROM bootloader
+**Flashing.** From 0.3.0 the node does not deep-sleep while a USB *host* is
+attached (it waits awake between readings instead), so plugging it into the
+Mac and waiting for the next wake is enough. A USB charger has no host and
+does not change anything. For older firmware, or a crashed one: the node is
+awake for well under a second, too short for `upload` to catch. Hold **B**, tap **R**, release **B**: the ROM bootloader
 enumerates and waits. After flashing, the RTS reset leaves it in the
 bootloader; tap **R** again, or reset it from the Mac:
 
@@ -124,8 +127,14 @@ The `B+` pad is not connected to any GPIO on the XIAO ESP32C3 — if you want
 - **C1 = 100 nF** across R2. The ESP32 ADC wants a low-impedance source; without
   the cap a 500 kΩ source gives you noise. Throw away the first sample after
   wake anyway.
-- Use `analogReadMilliVolts(A2)` and multiply by 2 — the C3 carries ADC
-  calibration in efuse, so no hand-calibration is needed.
+- Use `analogReadMilliVolts(A2)` and multiply by 2. The C3 carries ADC
+  calibration in efuse, but resistor tolerance still shows: the bench node read
+  2,1 % high. Measure the cell with a meter **on battery, not while charging**,
+  and put `meter / reported` into `VBAT_SCALE` in that node's `secrets.h`.
+- **Do not check the divider with the meter's voltage range.** A meter with
+  ~1 MΩ input impedance (the ANENG 681 in auto mode) sits in parallel with R2
+  and reads 1,25 V where the ADC sees 2,0 V. Compare `vbat` against the cell
+  voltage instead.
 
 Seeed's own examples use 200 kΩ or even 10 kΩ. Don't. A 200 k/200 k divider
 draws 10,5 µA continuously, a quarter of the node's entire sleep budget; 10 k/10 k
