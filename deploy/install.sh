@@ -23,6 +23,10 @@ if [ ! -f /opt/humi/humi.db ] && [ -f humi.db ]; then
 fi
 chown -R humi:humi /opt/humi /var/log/humi
 
+# The CI deploy key's forced command. Root-owned and outside /opt/humi, which
+# belongs to the service user.
+install -m 755 -o root -g root receive.sh /usr/local/sbin/humi-receive
+
 install -m 644 humi.service /etc/systemd/system/humi.service
 systemctl daemon-reload
 systemctl enable humi >/dev/null

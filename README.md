@@ -76,6 +76,30 @@ sudo -u humi /opt/humi/bin/userctl -conf /opt/humi/config.yml -invite admin
 sudo -u humi /opt/humi/bin/userctl -conf /opt/humi/config.yml -reset <username>   # locked out
 ```
 
+### Deploy from GitHub
+
+`.github/workflows/deploy.yml` tests every push to `main` (firmware and docs
+excepted) and installs it on the server with `deploy/receive.sh`, which backs
+up the database (last 5 in `/var/backups/humi`), runs `install.sh` and fails
+the run unless `/api/v1/health` answers. One-time setup:
+
+```sh
+# 1. a key only CI uses
+ssh-keygen -t ed25519 -N '' -C humi-deploy -f humi-deploy
+
+# 2. on the server, after one manual deploy of this version (it installs
+#    /usr/local/sbin/humi-receive), append to /root/.ssh/authorized_keys:
+command="/usr/local/sbin/humi-receive",restrict ssh-ed25519 AAAA... humi-deploy
+
+# 3. the host key, checked against the server's own fingerprint
+ssh-keyscan -t ed25519 humi.nomadus.net
+```
+
+On GitHub, Settings → Environments → `production`: secret `DEPLOY_SSH_KEY`
+(contents of `humi-deploy`), secret `DEPLOY_KNOWN_HOSTS` (the keyscan line),
+variable `DEPLOY_HOST` = `humi.nomadus.net`. Until the variable exists the
+deploy job is skipped. Delete the local private key once it is stored.
+
 **Upgrading from basic auth:** deploy, create the admin with the link above
 (basic auth still in front is fine), then drop the `auth_basic` lines from the
 live nginx site as in `deploy/humi.nginx` and `nginx -s reload`.

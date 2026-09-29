@@ -36,7 +36,7 @@ bundle: web
 		GOOS=linux GOARCH=$$arch CGO_ENABLED=0 go build -o $(BIN)/bundle/bin/linux-$$arch/userctl ./cmd/userctl || exit 1; \
 	done
 	cp -R $(WEB_OUT) $(BIN)/bundle/web
-	cp deploy/config.yml deploy/humi.service deploy/humi.nginx deploy/install.sh $(BIN)/bundle/
+	cp deploy/config.yml deploy/humi.service deploy/humi.nginx deploy/install.sh deploy/receive.sh $(BIN)/bundle/
 	COPYFILE_DISABLE=1 tar --no-xattrs -C $(BIN) -czf $(BIN)/humi-bundle.tgz bundle
 
 test:

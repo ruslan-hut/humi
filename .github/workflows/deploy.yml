@@ -1,0 +1,88 @@
+# Tests every push to main and deploys it to humi.nomadus.net.
+#
+# One-time setup (README, "Deploy from GitHub"), in the production environment:
+#   variables  DEPLOY_HOST          humi.nomadus.net
+#              DEPLOY_PORT          optional, 22 by default
+#   secrets    DEPLOY_SSH_KEY       private half of the CI deploy key
+#              DEPLOY_KNOWN_HOSTS   ssh-keyscan output for the host
+# The key's public half sits in root's authorized_keys with a forced command
+# (deploy/receive.sh), so it can install a bundle and do nothing else.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'firmware/**'
+      - '**.md'
+  workflow_dispatch:
+
+# One deploy at a time; a newer push waits instead of cutting one short.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - run: go vet ./...
+      - run: go test -race ./...
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npx ng test --watch=false
+        working-directory: web
+
+  deploy:
+    needs: test
+    # Skipped, not failed, until the one-time setup is done.
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build bundle
+        run: make bundle
+
+      - name: Install on the server
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # The forced command ignores what we ask to run; it reads the bundle from stdin.
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "root@$HOST" < bin/humi-bundle.tgz
