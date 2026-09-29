@@ -6,7 +6,7 @@
 #define WIFI_PASS  "your-password"
 
 // Bench: plain HTTP to the machine running the server on the LAN.
-// Deployed: https://humi.example.com/api/v1/readings
+// Deployed (verified against ca.h): https://humi.nomadus.net/api/v1/readings
 #define HUMI_URL   "http://192.168.1.144:9820/api/v1/readings"
 
 // From: nodectl -slug <slug> -name <Name>

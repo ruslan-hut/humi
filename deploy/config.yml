@@ -1,0 +1,24 @@
+# /opt/humi/config.yml on the server. chmod 600, owned by humi: it will hold
+# the Telegram key once alerts are on.
+env: prod
+
+listen:
+  bind_ip: 127.0.0.1   # nginx is the only way in
+  port: "9820"
+
+database:
+  path: /opt/humi/humi.db
+
+ingest:
+  max_batch: 32
+  max_age_s: 86400
+  rate_per_min: 30
+  offline_ratio: 3
+
+telegram:
+  enabled: false
+  api_key: ""
+  chat_id: ""
+
+web:
+  dir: /opt/humi/web

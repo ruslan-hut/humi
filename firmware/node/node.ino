@@ -5,15 +5,17 @@
 // readings that could not be sent yet.
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <Wire.h>
 #include <sys/time.h>
 #include "driver/gpio.h"
 #include "esp_sleep.h"
 
+#include "ca.h"
 #include "secrets.h"
 #include "sht4x.h"
 
-const char* FW_VERSION = "0.3.1";
+const char* FW_VERSION = "0.4.0";
 
 // The sensor module is powered from a GPIO, so its LED, LDO and pull-ups are
 // off while the node sleeps. -1 when its VIN is wired to 3V3 instead.
@@ -194,9 +196,20 @@ bool post(const Sample* current) {
   if (current) appendSample(body, *current, now, true);
   body += "]";
 
+  // https:// in HUMI_URL verifies the server against ca.h; http:// is for the
+  // bench server on the LAN.
+  WiFiClient plain;
+  WiFiClientSecure tls;
+  bool secure = strncmp(HUMI_URL, "https://", 8) == 0;
+  if (secure) tls.setCACert(ROOT_CA);
+
   HTTPClient http;
   http.setTimeout(5000);
-  http.begin(HUMI_URL);
+  if (secure) {
+    http.begin(tls, HUMI_URL);
+  } else {
+    http.begin(plain, HUMI_URL);
+  }
   http.addHeader("Content-Type", "application/json");
   http.addHeader("Authorization", "Bearer " HUMI_TOKEN);
 

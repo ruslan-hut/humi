@@ -43,5 +43,26 @@ SHT41 on USB posts every 30 s to a server on the LAN and shows up on the
 dashboard. Next: deep sleep, battery sense and a µA measurement before
 building the rest. Firmware and flashing: `firmware/README.md`.
 
-**The read API is unauthenticated.** The service binds to `127.0.0.1`; keep it
-there until phase 5 lands, or reach it over a VPN.
+**The read API is unauthenticated in the service itself.** It binds to
+`127.0.0.1`; in production nginx puts basic auth in front of everything except
+`/api/v1/readings` until phase 5 lands.
+
+## Deploy
+
+Live at https://humi.nomadus.net (Ubuntu, nginx, Let's Encrypt).
+
+```sh
+make bundle                                   # bin/humi-bundle.tgz, amd64 + arm64
+scp bin/humi-bundle.tgz root@server:/tmp/
+# on the server:
+cd /tmp && tar xzf humi-bundle.tgz && cd bundle && sudo sh install.sh
+```
+
+`install.sh` upgrades in place and never touches an existing `config.yml` or
+database. First install only: `deploy/humi.nginx` into `sites-available`, a
+certificate from `certbot certonly --nginx`, and `/etc/nginx/humi.htpasswd`.
+Register a node on the server:
+
+```sh
+sudo -u humi /opt/humi/bin/nodectl -conf /opt/humi/config.yml -slug bedroom -name Bedroom -interval 900
+```
