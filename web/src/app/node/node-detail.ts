@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 import { Api } from '../core/api';
+import { Auth } from '../core/auth';
 import { BAND_LABEL, Bucket, NodeState, Series, rhBand } from '../core/models';
 import { ChartPoint, SeriesChart } from './series-chart/series-chart';
 
@@ -31,6 +32,7 @@ export class NodeDetail {
   readonly slug = input.required<string>();
 
   private readonly api = inject(Api);
+  protected readonly auth = inject(Auth);
 
   readonly ranges = RANGES;
   readonly range = signal<Range>(RANGES[0]);
@@ -50,8 +52,8 @@ export class NodeDetail {
   readonly rows = computed<Bucket[]>(() => [...(this.series()?.points ?? [])].reverse());
 
   readonly band = computed(() => {
-    const rh = this.node()?.last?.rh;
-    return rh === undefined ? null : BAND_LABEL[rhBand(rh)];
+    const n = this.node();
+    return n?.last ? BAND_LABEL[rhBand(n.last.rh, n)] : null;
   });
 
   constructor() {

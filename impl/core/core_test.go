@@ -11,7 +11,10 @@ import (
 	"humi/internal/lib/clock"
 )
 
+// stubDB fakes the ingest and series paths; the embedded interface panics on
+// anything else, which the integration tests in internal/database cover.
 type stubDB struct {
+	Database
 	saved []entity.Reading
 	calls []struct {
 		from, to int64

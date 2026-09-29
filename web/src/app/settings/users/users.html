@@ -1,0 +1,104 @@
+<header class="page-head">
+  <a class="icon-btn" routerLink="/settings" aria-label="Back to settings">&larr;</a>
+  <h1>People &amp; access</h1>
+</header>
+
+@if (error(); as message) {
+  <p class="notice error" role="alert">{{ message }}</p>
+}
+
+<h2 class="section-label">People</h2>
+<ul class="list">
+  @for (u of users(); track u.id) {
+    <li>
+      <button type="button" class="row" [attr.aria-expanded]="open() === u.id" (click)="toggle(u)">
+        <span class="avatar" aria-hidden="true">{{ u.username.charAt(0).toUpperCase() }}</span>
+        <span class="main">
+          <span class="title">
+            {{ u.username }}
+            @if (u.id === me()) { <span class="you">you</span> }
+          </span>
+          <span class="sub">
+            @if (u.last_active) { Active {{ ago(u.last_active) }} } @else { Not signed in }
+            @if (u.sessions > 0) { · {{ u.sessions }} {{ u.sessions === 1 ? 'device' : 'devices' }} }
+          </span>
+        </span>
+        <span class="chip" [class.admin]="u.role === 'admin'">{{ u.role === 'admin' ? 'Admin' : 'Viewer' }}</span>
+      </button>
+
+      @if (open() === u.id) {
+        <div class="actions">
+          @if (u.id === me()) {
+            <p class="note">
+              This is you. Change your password under <a routerLink="/settings/account">Account</a>.
+            </p>
+          } @else {
+            <div class="segmented" role="radiogroup" aria-label="Role">
+              @for (r of roles; track r.value) {
+                <button type="button" role="radio" [attr.aria-checked]="u.role === r.value"
+                        [disabled]="r.value === 'viewer' && isLastAdmin(u)" (click)="setRole(u, r.value)">
+                  <span>{{ r.label }}</span>
+                  <small>{{ r.hint }}</small>
+                </button>
+              }
+            </div>
+
+            @if (resetLink()?.userId === u.id) {
+              <app-secret [value]="resetLink()!.url" [title]="'Humi password reset'"
+                          hint="Send this link to them. It works once, for 24 hours." />
+            } @else {
+              <button type="button" class="btn block" (click)="reset(u)">Password reset link</button>
+            }
+            <button type="button" class="btn quiet-danger block" [disabled]="isLastAdmin(u)" (click)="remove(u)">
+              Remove {{ u.username }}
+            </button>
+          }
+        </div>
+      }
+    </li>
+  } @empty {
+    <li class="row"><span class="sub">{{ users() ? 'Nobody yet' : 'Loading…' }}</span></li>
+  }
+</ul>
+
+<section class="panel">
+  <h2>Invite someone</h2>
+  <p class="lead">Creates a link they open on their phone to pick a username and password. It works once, for 7 days.</p>
+
+  @if (issued(); as inv) {
+    <app-secret [value]="inviteUrl(inv)" [title]="'Join Humi'"
+                [hint]="(inv.role === 'admin' ? 'Admin' : 'Viewer') + ' invite. Send it now — the link cannot be shown again.'" />
+    <button type="button" class="btn block another" (click)="issued.set(null)">Create another</button>
+  } @else {
+    <div class="segmented" role="radiogroup" aria-label="Role for the invite">
+      @for (r of roles; track r.value) {
+        <button type="button" role="radio" [attr.aria-checked]="inviteRole() === r.value" (click)="inviteRole.set(r.value)">
+          <span>{{ r.label }}</span>
+          <small>{{ r.hint }}</small>
+        </button>
+      }
+    </div>
+    <button type="button" class="btn primary block" [disabled]="busy()" (click)="createInvite()">Create invite link</button>
+  }
+</section>
+
+@if (invites().length) {
+  <h2 class="section-label">Open links</h2>
+  <ul class="list">
+    @for (inv of invites(); track inv.id) {
+      <li class="row">
+        <span class="main">
+          <span class="title">
+            @if (inv.kind === 'reset') { Password reset · {{ inv.username }} }
+            @else { {{ inv.role === 'admin' ? 'Admin' : 'Viewer' }} invite }
+          </span>
+          <span class="sub">
+            Expires {{ until(inv.expires_at) }}
+            @if (inv.created_by) { · by {{ inv.created_by }} }
+          </span>
+        </span>
+        <button type="button" class="btn quiet-danger" (click)="revoke(inv)">Revoke</button>
+      </li>
+    }
+  </ul>
+}

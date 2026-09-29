@@ -11,12 +11,16 @@ Go service + SQLite, mobile-first Angular dashboard.
 
 ```sh
 # backend
-go run ./cmd/nodectl -slug bedroom -name Bedroom   # prints the ingest token once
 go run ./cmd/server  -conf config.yml -log .
+go run ./cmd/userctl -invite admin                 # prints a one-time link for the first admin
 
 # frontend, proxying /api to :9820
 cd web && npm install && npx ng serve
 ```
+
+Open the link, pick a username and password. Sensors, people and invites are
+managed from Settings (the gear) from then on; `nodectl` still works for
+registering a node from the shell.
 
 Or build once and let the Go binary serve the UI:
 
@@ -35,17 +39,19 @@ curl -X POST localhost:9820/api/v1/readings \
 
 ## Status
 
-Phases 1 and 3 are done: ingest, storage, node state, bucketed series, dashboard
-and charts. Alerts (phase 4) and UI auth (phase 5) are specified, not built.
+Phases 1, 3 and 5 are done: ingest, storage, node state, bucketed series,
+dashboard and charts, sign-in with admin/viewer roles, and settings for sensors
+(name, interval, thresholds, tokens) and people (invites, reset links, devices).
+Alerts (phase 4) are specified, not built: thresholds are stored and colour the
+dashboard, but nothing is sent yet.
 
 Hardware received 27 Sep 2026. **Phase 2 is proven on the bench**: one XIAO +
 SHT41 on USB posts every 30 s to a server on the LAN and shows up on the
 dashboard. Next: deep sleep, battery sense and a µA measurement before
 building the rest. Firmware and flashing: `firmware/README.md`.
 
-**The read API is unauthenticated in the service itself.** It binds to
-`127.0.0.1`; in production nginx puts basic auth in front of everything except
-`/api/v1/readings` until phase 5 lands.
+Everything except `/api/v1/readings` (node token) and `/api/v1/health` needs a
+signed-in session: an HttpOnly, SameSite=Strict cookie, 30 days sliding.
 
 ## Deploy
 
@@ -59,10 +65,17 @@ cd /tmp && tar xzf humi-bundle.tgz && cd bundle && sudo sh install.sh
 ```
 
 `install.sh` upgrades in place and never touches an existing `config.yml` or
-database. First install only: `deploy/humi.nginx` into `sites-available`, a
-certificate from `certbot certonly --nginx`, and `/etc/nginx/humi.htpasswd`.
-Register a node on the server:
+database. First install only: `deploy/humi.nginx` into `sites-available` and a
+certificate from `certbot certonly --nginx`.
+
+The first admin, on the server (`web.base_url` in `/opt/humi/config.yml` makes
+the link absolute; add it by hand on a server installed before it existed):
 
 ```sh
-sudo -u humi /opt/humi/bin/nodectl -conf /opt/humi/config.yml -slug bedroom -name Bedroom -interval 900
+sudo -u humi /opt/humi/bin/userctl -conf /opt/humi/config.yml -invite admin
+sudo -u humi /opt/humi/bin/userctl -conf /opt/humi/config.yml -reset <username>   # locked out
 ```
+
+**Upgrading from basic auth:** deploy, create the admin with the link above
+(basic auth still in front is fine), then drop the `auth_basic` lines from the
+live nginx site as in `deploy/humi.nginx` and `nginx -s reload`.

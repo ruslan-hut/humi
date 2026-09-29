@@ -3,8 +3,8 @@
 Detailed build plan derived from `humidity-monitor-plan.md`. Scope: **2–5 battery
 nodes**, current state plus statistics, **read primarily on a phone**.
 
-Phase 1–3 of the plan below are already in the repository and run end to end.
-Everything from Phase 4 on is specified but not built.
+Phases 1, 3 and 5 of the plan below are in the repository and run end to end;
+phase 2 is proven on the bench. Phases 4, 6 and 7 are specified but not built.
 
 ---
 
@@ -34,6 +34,8 @@ SQLite does not notice.
 | Charts | ng2-charts / ECharts | **inline SVG, zero dependency** | 250 kB initial bundle instead of ~600 kB; matters on a phone over 4G |
 | Statistics | on-the-fly `GROUP BY` | same, **with a server-side point cap** | the phone never receives more points than it can draw (480) |
 | Migrations dir | `/migrations` | `internal/database/migrations` | `go:embed` cannot reach above its own package |
+| UI session | JWT HS256 in `localStorage` | **opaque token, SHA-256 in `sessions`, HttpOnly cookie** | revocable per device, no secret to rotate, not readable by page script |
+| Users | single user | **admin + viewer, invite links** | a household shares the dashboard; only admins change sensors |
 
 ---
 
@@ -113,13 +115,42 @@ one it used in `bucket_s` — the client plots what it gets and never paginates.
 
 Row counts; also the readiness probe.
 
+### Sessions, people, settings (phase 5)
+
+Every route below except the first three needs the session cookie; non-GET
+requests also need `X-Requested-With: humi` (403 without it) on top of
+SameSite=Strict. 401 means no session, 403 means not an admin.
+
+```
+POST   /auth/login                   {username, password} → sets cookie      10/min/IP
+GET    /auth/invites/{token}         what the link is for                    10/min/IP
+POST   /auth/invites/{token}         join {username,password} | reset {password} → signed in
+POST   /auth/logout
+GET    /auth/me
+PUT    /account/password             {current, new}; signs out other devices
+GET    /account/sessions             signed-in devices, current marked
+DELETE /account/sessions/{id}
+GET    /nodes/{slug}/rules
+
+admin:
+POST   /nodes                        {slug,name,location,interval_s} → {node, token}
+PATCH  /nodes/{slug}                 {name?,location?,interval_s?,enabled?}
+DELETE /nodes/{slug}
+POST   /nodes/{slug}/token           rotate; the old one dies at once
+PUT    /nodes/{slug}/rules           replace the node's rules, one per (metric, op)
+GET    /users · PATCH /users/{id} {role} · DELETE /users/{id}
+POST   /users/{id}/reset             24 h single-use link
+GET    /invites · POST /invites {role} · DELETE /invites/{id}   7 d single-use links
+```
+
+The last admin cannot be demoted or removed. `GET /nodes` carries `rh_low` /
+`rh_high` from each node's enabled humidity rules; the dashboard colours cards
+by them (damp is 10 points above `rh_high`).
+
 ### Planned
 
 ```
 GET    /api/v1/alerts                # history, newest first
-GET    /api/v1/nodes/{slug}/rules
-PUT    /api/v1/nodes/{slug}/rules
-POST   /api/v1/auth/login            # phase 5
 ```
 
 ---
@@ -201,17 +232,17 @@ interface on `core` so a second channel is additive.
 Default rules seeded for a new node: `rh > 65` for 60 min, `rh < 30` for 60 min,
 `offline`, `vbat < 3.4`.
 
-### Phase 5 — auth
+### Phase 5 — auth and settings ✅ done
 
-Right now **`GET /nodes` and `GET /series` are unauthenticated** and the service
-binds to `127.0.0.1`. Do not publish it before this phase.
-
-- `users` table, bcrypt hash, single user is enough
-- `POST /auth/login` → JWT HS256, 30-day expiry, secret from config
-- Functional `authGuard` + an `inject()`-based interceptor on the Angular side
-- Token in `localStorage`; on a phone a 30-day session beats correctness here
-- Move the RH comfort bands out of `web/src/app/core/models.ts` and into the
-  rules API, so thresholds live in exactly one place
+- `users`, `sessions`, `invites` (migration `0002`); bcrypt, opaque session
+  tokens stored as SHA-256, 30-day sliding expiry refreshed at most hourly
+- First admin from `userctl -invite admin`; everyone else by invite link from
+  Settings → People & access, shared with the phone's share sheet
+- Settings → Sensors: add (token shown once), rename, interval, on/off,
+  thresholds, rotate token, delete. Viewers see only their own account page
+- Angular: functional `authGuard` / `adminGuard`, an interceptor that adds
+  `X-Requested-With` and sends a dead session to sign-in, Signal Forms
+- RH comfort bands now come from the rules API; `models.ts` holds no thresholds
 
 ### Phase 6 — retention and backup
 

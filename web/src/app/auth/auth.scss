@@ -1,0 +1,23 @@
+:host {
+  display: block;
+  max-width: 380px;
+  margin: 8vh auto 0;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.lead {
+  margin: 0 0 22px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--ink-secondary);
+}
+
+.panel { padding: 20px; }
+
+.btn.block { margin-top: 6px; }

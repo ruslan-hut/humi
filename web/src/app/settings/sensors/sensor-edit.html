@@ -1,0 +1,140 @@
+<header class="page-head">
+  <a class="icon-btn" routerLink="/settings/sensors" aria-label="Back to sensors">&larr;</a>
+  <h1>{{ node()?.name ?? slug() }}</h1>
+  @if (node(); as n) {
+    <a class="view" [routerLink]="['/n', n.slug]">Charts</a>
+  }
+</header>
+
+@if (state() === 'loading') {
+  <p class="notice">Loading…</p>
+} @else if (state() === 'missing') {
+  <p class="notice">There is no sensor called “{{ slug() }}”.</p>
+  <a class="btn block" routerLink="/settings/sensors">All sensors</a>
+} @else if (node(); as n) {
+  <p class="meta">
+    <span class="dot" [attr.data-state]="status()?.key" aria-hidden="true"></span>
+    {{ status()?.label }}
+    @if (n.last_seen) { · last report {{ ago(n.last_seen) }} }
+    @if (n.last?.vbat; as v) { · {{ v.toFixed(2) }} V }
+    @if (n.last?.rssi; as r) { · {{ r }} dBm }
+  </p>
+
+  <!-- General -->
+  <form class="panel" [formRoot]="g">
+    <h2>General</h2>
+    <p class="lead">Id <code>{{ n.slug }}</code> · added {{ ago(n.created_at) }}</p>
+
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" class="input" [formField]="g.name" autocomplete="off" />
+      @if (g.name().touched()) {
+        @for (e of g.name().errors(); track e.kind) { <span class="error">{{ e.message }}</span> }
+      }
+    </div>
+
+    <div class="field">
+      <label for="location">Location <span class="optional">optional</span></label>
+      <input id="location" class="input" [formField]="g.location" autocomplete="off" />
+    </div>
+
+    <div class="field">
+      <label for="interval">Reports</label>
+      <select id="interval" class="input" [formField]="g.interval">
+        @for (c of intervals(); track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+      </select>
+      <span class="hint">The sensor picks this up at its next report, no reflashing. More often means a shorter battery life.</span>
+    </div>
+
+    <label class="switch-row">
+      <span class="text">
+        <span>Accept readings</span>
+        <span class="hint">Off: the server rejects this sensor's reports. Its history is kept.</span>
+      </span>
+      <input type="checkbox" class="switch" role="switch" [formField]="g.enabled" />
+    </label>
+
+    @for (e of g().errors(); track e.kind) {
+      <p class="form-error" role="alert">{{ e.message }}</p>
+    }
+
+    <div class="form-actions">
+      <button type="submit" class="btn primary" [disabled]="!g().dirty() || g().submitting()">Save</button>
+    </div>
+  </form>
+
+  <!-- Thresholds -->
+  <form class="panel" [formRoot]="t">
+    <h2>Thresholds</h2>
+    <p class="lead">
+      Humidity limits set the Dry / Humid state on the dashboard. Notifications are not sent yet —
+      they arrive with Telegram alerts.
+    </p>
+
+    <ul class="rules">
+      @for (s of slots; track s.key) {
+        <li class="rule">
+          <label class="switch-row">
+            <span class="text">
+              <span>{{ s.title }}</span>
+              @if (s.key === 'offline') {
+                <span class="hint">No report for three intervals in a row.</span>
+              } @else if (!t[s.key].enabled().value()) {
+                <span class="hint">Off</span>
+              }
+            </span>
+            <input type="checkbox" class="switch" role="switch" [formField]="t[s.key].enabled"
+                   [attr.aria-label]="s.title" />
+          </label>
+
+          @if (s.word && t[s.key].enabled().value()) {
+            <div class="limits">
+              <label class="value">
+                <span class="word">{{ s.word }}</span>
+                <input class="input" type="number" inputmode="decimal" [step]="s.step"
+                       [formField]="t[s.key].threshold" [attr.aria-label]="s.title + ', ' + s.unit" />
+                <span class="unit">{{ s.unit }}</span>
+              </label>
+              <select class="input" [formField]="t[s.key].forMin" [attr.aria-label]="s.title + ', how long'">
+                @for (c of holdFor()[s.key]; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+              </select>
+            </div>
+            @for (e of t[s.key].threshold().errors(); track e.kind) {
+              <span class="error">{{ e.message }}</span>
+            }
+          }
+        </li>
+      }
+    </ul>
+
+    @for (e of t().errors(); track e.kind) {
+      <p class="form-error" role="alert">{{ e.message }}</p>
+    }
+
+    <div class="form-actions">
+      <button type="submit" class="btn primary" [disabled]="!t().dirty() || t().submitting()">Save thresholds</button>
+    </div>
+  </form>
+
+  <!-- Token -->
+  <section class="panel">
+    <h2>Token</h2>
+    @if (token(); as tk) {
+      <p class="lead">Put it into <code>firmware/node/secrets.h</code> as <code>HUMI_TOKEN</code> and reflash the node.</p>
+      <app-secret [value]="tk" [title]="n.name + ' token'" />
+    } @else {
+      <p class="lead">
+        The token is how the server knows this sensor. It is stored only as a hash and cannot be shown again.
+        Issue a new one if it was lost or leaked.
+      </p>
+      <button type="button" class="btn block" [disabled]="rotating()" (click)="rotate()">Issue new token</button>
+    }
+  </section>
+
+  <!-- Delete -->
+  <section class="panel">
+    <h2>Delete sensor</h2>
+    <p class="lead">Removes the sensor and all its readings.</p>
+    <button type="button" class="btn quiet-danger block" (click)="remove()">Delete {{ n.name }}</button>
+  </section>
+}

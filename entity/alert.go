@@ -8,6 +8,12 @@ const (
 	MetricOffline = "offline"
 )
 
+// Comparison operators of a rule.
+const (
+	OpGT = "gt"
+	OpLT = "lt"
+)
+
 // Rule is a threshold that raises an alert while it holds.
 type Rule struct {
 	ID        int64   `json:"id"`

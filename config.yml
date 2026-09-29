@@ -20,3 +20,4 @@ telegram:
 
 web:
   dir: "web/dist/web/browser"
+  base_url: ""   # empty: userctl prints links for the ng serve dev server

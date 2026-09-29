@@ -22,3 +22,4 @@ telegram:
 
 web:
   dir: /opt/humi/web
+  base_url: https://humi.nomadus.net   # userctl prints invite links against it

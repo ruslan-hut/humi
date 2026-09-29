@@ -13,7 +13,7 @@ esac
 id humi >/dev/null 2>&1 || useradd --system --home-dir /opt/humi --shell /usr/sbin/nologin humi
 install -d -o humi -g humi /opt/humi /opt/humi/bin /var/log/humi
 
-install -m 755 bin/linux-$arch/humi bin/linux-$arch/nodectl /opt/humi/bin/
+install -m 755 bin/linux-$arch/humi bin/linux-$arch/nodectl bin/linux-$arch/userctl /opt/humi/bin/
 rm -rf /opt/humi/web
 cp -R web /opt/humi/web
 

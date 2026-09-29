@@ -33,11 +33,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # Dashboard and read API: basic auth until phase 5 (user auth) lands.
+    # Dashboard and API: the service's own sign-in guards them. Create the
+    # first admin (userctl -invite admin) before dropping basic auth here.
     location / {
-        auth_basic "humi";
-        auth_basic_user_file /etc/nginx/humi.htpasswd;
-
         proxy_pass http://127.0.0.1:9820;
         proxy_set_header X-Real-IP $remote_addr;
     }

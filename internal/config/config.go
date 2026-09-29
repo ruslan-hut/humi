@@ -30,7 +30,8 @@ type Config struct {
 		ChatID  string `yaml:"chat_id" env-default:""`
 	} `yaml:"telegram"`
 	Web struct {
-		Dir string `yaml:"dir" env-default:""` // static Angular build, empty disables serving
+		Dir     string `yaml:"dir" env-default:""`      // static Angular build, empty disables serving
+		BaseURL string `yaml:"base_url" env-default:""` // public origin, userctl prints invite links against it
 	} `yaml:"web"`
 }
 

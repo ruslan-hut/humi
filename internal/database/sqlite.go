@@ -13,8 +13,26 @@ import (
 	"humi/internal/lib/token"
 )
 
-// ErrNotFound is returned when a lookup matches no row.
-var ErrNotFound = errors.New("not found")
+// Lookup and constraint failures. They are the entity kinds, so the HTTP layer
+// can map them without knowing about the database.
+var (
+	ErrNotFound = entity.ErrNotFound // a lookup matched no row
+	ErrConflict = entity.ErrConflict // a unique key is already taken
+)
+
+// ErrLastAdmin refuses a change that would leave nobody able to administer.
+var ErrLastAdmin = entity.Errorf(entity.ErrConflict, "at least one admin is required")
+
+// defaultRules are seeded for every new node; 0002_users.sql seeds the same
+// set for nodes that existed before.
+var defaultRules = []entity.Rule{
+	{Metric: entity.MetricRH, Op: entity.OpGT, Threshold: 65, ForMin: 60, Enabled: true},
+	{Metric: entity.MetricRH, Op: entity.OpLT, Threshold: 30, ForMin: 60, Enabled: true},
+	{Metric: entity.MetricTemp, Op: entity.OpGT, Threshold: 30, ForMin: 30, Enabled: false},
+	{Metric: entity.MetricTemp, Op: entity.OpLT, Threshold: 10, ForMin: 30, Enabled: false},
+	{Metric: entity.MetricVBat, Op: entity.OpLT, Threshold: 3.4, ForMin: 180, Enabled: true},
+	{Metric: entity.MetricOffline, Op: entity.OpGT, Threshold: 0, ForMin: 0, Enabled: true},
+}
 
 // SQLite is the storage backend. SQLite is enough here: a handful of nodes
 // posting a few times per hour produce well under a million rows per year.
@@ -53,17 +71,60 @@ func (s *SQLite) Close() error {
 	return s.db.Close()
 }
 
-// CreateNode registers a node and returns the plaintext token, which is shown once.
+// CreateNode registers a node with the default rules and returns the plaintext
+// token, which is shown once.
 func (s *SQLite) CreateNode(ctx context.Context, slug, name, location string, intervalS int) (string, error) {
 	t, err := token.New()
 	if err != nil {
 		return "", err
 	}
-	_, err = s.db.ExecContext(ctx,
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.ExecContext(ctx,
 		`INSERT INTO nodes (slug, name, location, token_hash, interval_s, created_at)
 		 VALUES (?, ?, ?, ?, ?, unixepoch())`,
 		slug, name, location, token.Hash(t), intervalS)
 	if err != nil {
+		return "", conflict(err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return "", err
+	}
+	if err = insertRules(ctx, tx, id, defaultRules); err != nil {
+		return "", err
+	}
+
+	return t, tx.Commit()
+}
+
+// UpdateNode stores the editable settings of a node.
+func (s *SQLite) UpdateNode(ctx context.Context, n *entity.Node) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE nodes SET name = ?, location = ?, interval_s = ?, enabled = ? WHERE id = ?`,
+		n.Name, n.Location, n.IntervalS, n.Enabled, n.ID)
+	return affected(res, err)
+}
+
+// DeleteNode removes a node together with its readings, rules and alerts.
+func (s *SQLite) DeleteNode(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM nodes WHERE id = ?`, id)
+	return affected(res, err)
+}
+
+// RotateNodeToken issues a new ingest token; the old one stops working at once.
+func (s *SQLite) RotateNodeToken(ctx context.Context, id int64) (string, error) {
+	t, err := token.New()
+	if err != nil {
+		return "", err
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE nodes SET token_hash = ? WHERE id = ?`, token.Hash(t), id)
+	if err = affected(res, err); err != nil {
 		return "", err
 	}
 	return t, nil
@@ -134,7 +195,9 @@ func (s *SQLite) SaveReadings(ctx context.Context, nodeID int64, rs []entity.Rea
 func (s *SQLite) Nodes(ctx context.Context) ([]entity.NodeState, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT n.id, n.slug, n.name, n.location, n.interval_s, n.enabled, n.created_at, COALESCE(n.last_seen, 0),
-		        r.received_at, r.rh, r.temp, r.vbat, r.rssi
+		        r.received_at, r.rh, r.temp, r.vbat, r.rssi,
+		        (SELECT threshold FROM rules WHERE node_id = n.id AND metric = 'rh' AND op = 'lt' AND enabled = 1),
+		        (SELECT threshold FROM rules WHERE node_id = n.id AND metric = 'rh' AND op = 'gt' AND enabled = 1)
 		 FROM nodes n
 		 LEFT JOIN readings r ON r.id = (
 		     SELECT id FROM readings WHERE node_id = n.id ORDER BY received_at DESC LIMIT 1)
@@ -151,10 +214,17 @@ func (s *SQLite) Nodes(ctx context.Context) ([]entity.NodeState, error) {
 		var rh sql.NullFloat64
 		var temp, vbat sql.NullFloat64
 		var rssi sql.NullInt64
+		var low, high sql.NullFloat64
 
 		if err = rows.Scan(&st.ID, &st.Slug, &st.Name, &st.Location, &st.IntervalS, &st.Enabled,
-			&st.CreatedAt, &st.LastSeen, &at, &rh, &temp, &vbat, &rssi); err != nil {
+			&st.CreatedAt, &st.LastSeen, &at, &rh, &temp, &vbat, &rssi, &low, &high); err != nil {
 			return nil, err
+		}
+		if low.Valid {
+			st.RHLow = &low.Float64
+		}
+		if high.Valid {
+			st.RHHigh = &high.Float64
 		}
 		if at.Valid {
 			st.Last = &entity.Reading{ReceivedAt: at.Int64, RH: rh.Float64}
@@ -211,6 +281,29 @@ func (s *SQLite) Series(ctx context.Context, nodeID int64, from, to int64, bucke
 	}
 
 	return points, rows.Err()
+}
+
+// conflict turns a unique constraint violation into ErrConflict.
+func conflict(err error) error {
+	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed") {
+		return ErrConflict
+	}
+	return err
+}
+
+// affected turns an update that matched no row into ErrNotFound.
+func affected(res sql.Result, err error) error {
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Stat reports the database file name for the health endpoint.

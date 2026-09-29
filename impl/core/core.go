@@ -24,6 +24,35 @@ type Database interface {
 	SaveReadings(ctx context.Context, nodeID int64, readings []entity.Reading) error
 	Series(ctx context.Context, nodeID int64, from, to int64, bucketS int) ([]entity.Bucket, error)
 	Stat(ctx context.Context) (map[string]any, error)
+
+	CreateNode(ctx context.Context, slug, name, location string, intervalS int) (string, error)
+	UpdateNode(ctx context.Context, n *entity.Node) error
+	DeleteNode(ctx context.Context, id int64) error
+	RotateNodeToken(ctx context.Context, id int64) (string, error)
+	Rules(ctx context.Context, nodeID int64) ([]entity.Rule, error)
+	ReplaceRules(ctx context.Context, nodeID int64, rules []entity.Rule) error
+
+	CreateUser(ctx context.Context, username, passHash, role string) (*entity.User, error)
+	UserByUsername(ctx context.Context, username string) (*entity.User, string, error)
+	UserByID(ctx context.Context, id int64) (*entity.User, string, error)
+	Users(ctx context.Context, now int64) ([]entity.UserInfo, error)
+	SetUserRole(ctx context.Context, id int64, role string) error
+	DeleteUser(ctx context.Context, id int64) error
+	SetPassword(ctx context.Context, id int64, passHash string) error
+
+	CreateSession(ctx context.Context, userID int64, userAgent string, now, expiresAt int64) (*entity.Session, string, error)
+	SessionByToken(ctx context.Context, token string, now int64) (*entity.Session, *entity.User, error)
+	TouchSession(ctx context.Context, id, now, expiresAt int64) error
+	Sessions(ctx context.Context, userID, now int64) ([]entity.Session, error)
+	DeleteSession(ctx context.Context, userID, id int64) error
+	DeleteOtherSessions(ctx context.Context, userID, keepID int64) error
+
+	CreateInvite(ctx context.Context, kind, role string, userID, createdBy, now, expiresAt int64) (*entity.Invite, error)
+	InviteByToken(ctx context.Context, token string, now int64) (*entity.Invite, error)
+	Invites(ctx context.Context, now int64) ([]entity.Invite, error)
+	DeleteInvite(ctx context.Context, id int64) error
+	AcceptJoin(ctx context.Context, token, username, passHash string, now int64) (*entity.User, error)
+	AcceptReset(ctx context.Context, token, passHash string, now int64) (*entity.User, error)
 }
 
 // Core wires the business logic on top of the database.

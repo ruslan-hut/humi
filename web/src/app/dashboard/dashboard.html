@@ -9,7 +9,12 @@
     <p class="notice">Loading…</p>
   } @else if (nodes().length === 0) {
     <p class="notice">
-      No nodes yet. Register one with <code>nodectl -slug bedroom -name Bedroom</code>.
+      No sensors yet.
+      @if (auth.isAdmin()) {
+        <a routerLink="/settings/sensors/new">Add the first one</a>.
+      } @else {
+        Ask an admin to add one.
+      }
     </p>
   } @else {
     <div class="grid">
