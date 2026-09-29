@@ -21,4 +21,6 @@ config.local.yml
 
 # firmware credentials
 firmware/**/secrets.h
+firmware/**/secrets.*.h
+!firmware/**/secrets.example.h
 firmware/**/build/
