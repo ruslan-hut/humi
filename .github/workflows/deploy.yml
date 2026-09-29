@@ -83,6 +83,11 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # The forced command ignores what we ask to run; it reads the bundle from stdin.
-          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            "root@$HOST" < bin/humi-bundle.tgz
+          # With the forced command in place sshd ignores the command below and
+          # runs humi-receive, which reads the bundle from stdin. Without it the
+          # key has a root shell: then this command runs instead, refuses, and
+          # the bundle never reaches a shell.
+          ssh -T -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "root@$HOST" \
+            'echo "deploy key is not restricted: prefix its authorized_keys line with command=\"/usr/local/sbin/humi-receive\",restrict" >&2; exit 1' \
+            < bin/humi-bundle.tgz
