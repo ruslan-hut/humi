@@ -243,6 +243,12 @@ Default rules seeded for a new node: `rh > 65` for 60 min, `rh < 30` for 60 min,
 - Angular: functional `authGuard` / `adminGuard`, an interceptor that adds
   `X-Requested-With` and sends a dead session to sign-in, Signal Forms
 - RH comfort bands now come from the rules API; `models.ts` holds no thresholds
+- PWA: manifest and icons, installable from Settings (Android/desktop prompt,
+  iOS Add to Home Screen hint). The Angular service worker caches the app
+  shell only — API responses are per user and always hit the network. A
+  deploy shows a "new version" bar; the app checks whenever it comes back to
+  the foreground. The Go server marks hashed bundles immutable and everything
+  else `no-cache`, so `ngsw.json` and `index.html` are never served stale
 
 ### Phase 6 — retention and backup
 

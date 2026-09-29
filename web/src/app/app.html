@@ -10,6 +10,13 @@
   }
 </header>
 
+@if (pwa.updateReady()) {
+  <div class="update" role="status">
+    <span>A new version of Humi is ready.</span>
+    <button type="button" class="btn primary" (click)="pwa.reload()">Reload</button>
+  </div>
+}
+
 <main>
   <router-outlet />
 </main>

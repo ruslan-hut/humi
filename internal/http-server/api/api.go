@@ -3,10 +3,13 @@ package api
 import (
 	"fmt"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -154,15 +157,33 @@ func New(conf *config.Config, log *slog.Logger, handler Handler) error {
 // mountStatic serves the Angular build, falling back to index.html so client
 // side routes survive a reload.
 func mountStatic(router chi.Router, dir string) {
+	// Not in every system's mime table; Chrome wants it for the install prompt.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
 	files := http.FileServer(http.Dir(dir))
 	index := filepath.Join(dir, "index.html")
 
 	router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		path := filepath.Join(dir, filepath.Clean(r.URL.Path))
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			w.Header().Set("Cache-Control", cacheControl(r.URL.Path))
 			files.ServeHTTP(w, r)
 			return
 		}
+		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, index)
 	})
+}
+
+// hashed matches the build's content-hashed bundles, e.g. main-INKJH662.js or
+// chunk--NbucB8y.js: a new build gives them new names.
+var hashed = regexp.MustCompile(`^(main|chunk|polyfills|styles)-[A-Za-z0-9_-]{8}\.(js|css)$`)
+
+// cacheControl keeps hashed bundles for good and makes the browser revalidate
+// everything else. index.html, ngsw.json and the worker script must never be
+// served stale, or a deploy is not picked up by the service worker.
+func cacheControl(urlPath string) string {
+	if hashed.MatchString(path.Base(urlPath)) {
+		return "public, max-age=31536000, immutable"
+	}
+	return "no-cache"
 }

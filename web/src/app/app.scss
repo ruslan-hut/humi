@@ -39,3 +39,24 @@ main {
   margin: 0 auto;
   padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
 }
+
+.update {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 900px;
+  margin: 12px auto 0;
+  padding: 10px 12px 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--rh);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+
+  span { flex: 1; }
+  .btn { min-height: 38px; padding: 0 14px; }
+}
+
+@media (max-width: 931px) {
+  .update { margin: 12px 16px 0; }
+}

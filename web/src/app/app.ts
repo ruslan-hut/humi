@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Auth } from './core/auth';
+import { Pwa } from './core/pwa';
 import { ConfirmHost } from './ui/confirm';
 import { ToastHost } from './ui/toast';
 
@@ -14,4 +15,5 @@ import { ToastHost } from './ui/toast';
 })
 export class App {
   protected readonly auth = inject(Auth);
+  protected readonly pwa = inject(Pwa);
 }

@@ -5,11 +5,22 @@
   <title>Humi</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Humidity and temperature, room by room.">
   <meta name="theme-color" content="#fcfcfb" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1a1a19" media="(prefers-color-scheme: dark)">
-  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <!-- iOS home-screen app: full screen, own title, status bar over the page
+       background (the header already pads for env(safe-area-inset-top)). -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Humi">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
 <body>
   <app-root></app-root>
+  <noscript>Humi needs JavaScript.</noscript>
 </body>
 </html>
